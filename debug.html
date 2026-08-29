@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Two-clock timer and scheduler debug view</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    body {
+      background: #101418;
+      color: #f3f6f8;
+    }
+
+    input,
+    button,
+    th {
+      background: #101418;
+      color: #f3f6f8;
+    }
+
+    .debug-intro,
+    .debug-meta {
+      font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+      font-size: 0.75rem;
+      font-weight: 400;
+      line-height: 1.4;
+    }
+
+    .debug-intro {
+      margin: 12px 0 0;
+    }
+
+    .debug-meta {
+      display: grid;
+      gap: 2px;
+      margin-top: 5px;
+      text-align: left;
+      white-space: normal;
+    }
+
+    .debug-variable {
+      color: #ffd54f;
+    }
+
+    .debug-formula {
+      color: #ff80ab;
+    }
+
+    .debug-description {
+      color: #67e8f9;
+    }
+
+    .debug-label {
+      color: #f3f6f8;
+      font-weight: 700;
+    }
+
+    .debug-key {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      margin-top: 10px;
+    }
+
+    .debug-key span::before {
+      content: "■ ";
+    }
+
+    .debug-flow {
+      display: grid;
+      gap: 16px;
+    }
+
+    .debug-group {
+      margin: 0;
+      padding-bottom: 6px;
+      border-bottom: 1px solid #5d6870;
+      color: #f3f6f8;
+      font-size: 0.875rem;
+    }
+
+    .values dl {
+      display: block;
+    }
+
+    .values dt {
+      padding: 10px 12px 6px;
+      border: 1px solid #5d6870;
+      border-bottom: 0;
+      background: #171d22;
+    }
+
+    .values dd {
+      margin: 0 0 12px;
+      padding: 8px 12px 12px;
+      border: 1px solid #5d6870;
+      border-top: 0;
+      background: #171d22;
+      color: #ffffff;
+      font-size: 1.125rem;
+      text-align: left;
+    }
+
+    .log table {
+      min-width: 1260px;
+    }
+
+    .log th {
+      min-width: 190px;
+      vertical-align: top;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Two-clock timer / scheduler — debug view</h1>
+    <p class="debug-intro">
+      This page runs the same timing engine as <code>index.html</code> and exposes
+      the meaning of every displayed value.
+    </p>
+    <div class="debug-key" aria-label="Debug annotation color key">
+      <span class="debug-variable">Variable or code expression</span>
+      <span class="debug-formula">Calculation</span>
+      <span class="debug-description">Description</span>
+    </div>
+
+    <section class="controls" aria-labelledby="configuration-heading">
+      <h2 id="configuration-heading">1. Configuration and transport</h2>
+      <div class="inputs">
+        <label>
+          <span class="debug-label">Tempo (BPM)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">bpm</span>
+            <span class="debug-formula">clampNumber(elements.bpm, 120)</span>
+            <span class="debug-description">Requested musical tempo in beats per minute.</span>
+          </span>
+          <input id="bpm" type="number" min="1" max="1000" step="0.1" value="120" inputmode="decimal">
+        </label>
+        <label>
+          <span class="debug-label">Timer interval (ms)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">timerIntervalMs</span>
+            <span class="debug-formula">clampNumber(elements.timerInterval, 25)</span>
+            <span class="debug-description">Nominal spacing between coarse JavaScript scheduler wake-ups.</span>
+          </span>
+          <input id="timerInterval" type="number" min="5" max="1000" step="1" value="25" inputmode="decimal">
+        </label>
+        <label>
+          <span class="debug-label">Look-ahead window (ms)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">lookAheadSeconds</span>
+            <span class="debug-formula">clampNumber(elements.lookAhead, 100) / 1000</span>
+            <span class="debug-description">How far into the audio-clock future events are queued.</span>
+          </span>
+          <input id="lookAhead" type="number" min="10" max="5000" step="1" value="100" inputmode="decimal">
+        </label>
+      </div>
+      <div class="buttons">
+        <button id="start" type="button">Start</button>
+        <button id="stop" type="button" disabled>Stop</button>
+        <button id="clear" type="button">Clear</button>
+      </div>
+      <p id="status" role="status" aria-live="polite">Idle</p>
+      <div class="debug-meta">
+        <span class="debug-variable">elements.status.textContent</span>
+        <span class="debug-description">Current transport or AudioContext startup state.</span>
+      </div>
+    </section>
+
+    <section class="values" aria-labelledby="current-values-heading">
+      <h2 id="current-values-heading">Current values</h2>
+      <div class="debug-flow">
+      <section aria-labelledby="derived-values-heading">
+      <h3 id="derived-values-heading" class="debug-group">2. Derived tempo and interval</h3>
+      <dl>
+        <dt>
+          <span class="debug-label">Tempo (BPM)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">displayBpm</span>
+            <span class="debug-formula">valid input BPM, otherwise 0</span>
+            <span class="debug-description">Validated tempo used for the derived preview values.</span>
+          </span>
+        </dt>
+        <dd><output id="bpmValue">120.000</output></dd>
+
+        <dt>
+          <span class="debug-label">Event rate (Hz)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">displayBpm / 60</span>
+            <span class="debug-formula">BPM ÷ 60</span>
+            <span class="debug-description">Number of target beats per second.</span>
+          </span>
+        </dt>
+        <dd><output id="eventRate">2.000000</output></dd>
+
+        <dt>
+          <span class="debug-label">Event interval (s)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">eventIntervalSeconds</span>
+            <span class="debug-formula">60 / bpm</span>
+            <span class="debug-description">Audio-clock time between consecutive beats.</span>
+          </span>
+        </dt>
+        <dd><output id="eventIntervalSeconds">0.500000</output></dd>
+
+        <dt>
+          <span class="debug-label">Event interval (ms)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">eventIntervalSeconds * 1000</span>
+            <span class="debug-formula">(60 / bpm) × 1000</span>
+            <span class="debug-description">The beat interval expressed in milliseconds.</span>
+          </span>
+        </dt>
+        <dd><output id="eventIntervalMilliseconds">500.000</output></dd>
+      </dl>
+      </section>
+
+      <section aria-labelledby="audio-values-heading">
+      <h3 id="audio-values-heading" class="debug-group">3. Audio context and device</h3>
+      <dl>
+        <dt>
+          <span class="debug-label">Audio sample rate (Hz)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">audioContext.sampleRate</span>
+            <span class="debug-description">Number of audio sample frames processed per second.</span>
+          </span>
+        </dt>
+        <dd><output id="sampleRate">0.000</output></dd>
+
+        <dt>
+          <span class="debug-label">Samples per event</span>
+          <span class="debug-meta">
+            <span class="debug-variable">audioContext.sampleRate * eventIntervalSeconds</span>
+            <span class="debug-formula">sample rate × (60 / bpm)</span>
+            <span class="debug-description">Ideal number of sample frames between beat targets.</span>
+          </span>
+        </dt>
+        <dd><output id="samplesPerEvent">0.000</output></dd>
+
+        <dt>
+          <span class="debug-label">Audio base latency (ms)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">audioContext.baseLatency</span>
+            <span class="debug-formula">(baseLatency || 0) × 1000</span>
+            <span class="debug-description">Browser-reported processing latency from the audio graph to the host audio subsystem.</span>
+          </span>
+        </dt>
+        <dd><output id="baseLatency">0.000</output></dd>
+
+        <dt>
+          <span class="debug-label">Audio output latency (ms)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">audioContext.outputLatency</span>
+            <span class="debug-formula">(outputLatency || 0) × 1000</span>
+            <span class="debug-description">Browser estimate from the audio destination to the output device.</span>
+          </span>
+        </dt>
+        <dd><output id="outputLatency">0.000</output></dd>
+      </dl>
+      </section>
+
+      <section aria-labelledby="scheduler-values-heading">
+      <h3 id="scheduler-values-heading" class="debug-group">4. Clock snapshots and scheduler wake-ups</h3>
+      <dl>
+        <dt>
+          <span class="debug-label">Performance clock (ms)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">performanceTimeMs</span>
+            <span class="debug-formula">performance.now()</span>
+            <span class="debug-description">Monotonic main-thread timestamp captured at the scheduler wake-up.</span>
+          </span>
+        </dt>
+        <dd><output id="performanceNow">0.000</output></dd>
+
+        <dt>
+          <span class="debug-label">Audio clock (s)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">audioTime</span>
+            <span class="debug-formula">audioContext.currentTime</span>
+            <span class="debug-description">Authoritative timeline used to target audio events.</span>
+          </span>
+        </dt>
+        <dd><output id="audioNow">0.000000</output></dd>
+
+        <dt>
+          <span class="debug-label">Next timer deadline (ms)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">expectedTimerDeadlineMs</span>
+            <span class="debug-formula">previous fixed deadline + timerIntervalMs; overdue intervals are skipped</span>
+            <span class="debug-description">Next target wake-up on the drift-resistant JavaScript timer grid.</span>
+          </span>
+        </dt>
+        <dd><output id="nextTimerDeadline">0.000</output></dd>
+
+        <dt>
+          <span class="debug-label">Last scheduler deadline error (ms)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">timerErrorMs</span>
+            <span class="debug-formula">performanceTimeMs - expectedTimerDeadlineMs</span>
+            <span class="debug-description">How early or late the latest JavaScript wake-up was; positive is late.</span>
+          </span>
+        </dt>
+        <dd><output id="lastTimerError">0.000</output></dd>
+
+        <dt>
+          <span class="debug-label">Maximum scheduler lateness (ms)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">maximumTimerErrorMs</span>
+            <span class="debug-formula">max(previous maximum, max(0, timerErrorMs))</span>
+            <span class="debug-description">Largest positive JavaScript scheduler delay observed since start or clear.</span>
+          </span>
+        </dt>
+        <dd><output id="maximumTimerError">0.000</output></dd>
+
+        <dt>
+          <span class="debug-label">Skipped timer intervals</span>
+          <span class="debug-meta">
+            <span class="debug-variable">skippedTimerIntervalCount</span>
+            <span class="debug-formula">sum of expired fixed-grid deadlines skipped after stalls</span>
+            <span class="debug-description">Scheduler wake slots intentionally bypassed to avoid a rapid catch-up loop.</span>
+          </span>
+        </dt>
+        <dd><output id="skippedTimerIntervals">0</output></dd>
+
+        <dt>
+          <span class="debug-label">Last timer period (ms)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">timerPeriodMs</span>
+            <span class="debug-formula">performanceTimeMs - previousTimerWakeMs</span>
+            <span class="debug-description">Elapsed main-thread time between the two latest scheduler callbacks.</span>
+          </span>
+        </dt>
+        <dd><output id="lastTimerPeriod">0.000</output></dd>
+
+        <dt>
+          <span class="debug-label">Average timer period (ms)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">timerPeriodTotalMs / timerPeriodSampleCount</span>
+            <span class="debug-formula">sum of observed periods ÷ number of period samples</span>
+            <span class="debug-description">Mean spacing between scheduler callbacks during the current run.</span>
+          </span>
+        </dt>
+        <dd><output id="averageTimerPeriod">0.000</output></dd>
+
+        <dt>
+          <span class="debug-label">Last scheduler-period error (ms)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">timerPeriodErrorMs</span>
+            <span class="debug-formula">timerPeriodMs - timerIntervalMs</span>
+            <span class="debug-description">Difference between observed callback spacing and the requested interval.</span>
+          </span>
+        </dt>
+        <dd><output id="lastTimerPeriodError">0.000</output></dd>
+      </dl>
+      </section>
+
+      <section aria-labelledby="queue-values-heading">
+      <h3 id="queue-values-heading" class="debug-group">5. Audio event queue and safety margin</h3>
+      <dl>
+        <dt>
+          <span class="debug-label">Scheduler horizon (s)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">schedulerHorizon</span>
+            <span class="debug-formula">audioTime + lookAheadSeconds</span>
+            <span class="debug-description">End of the audio-clock window that must already be scheduled.</span>
+          </span>
+        </dt>
+        <dd><output id="schedulerHorizon">0.000000</output></dd>
+
+        <dt>
+          <span class="debug-label">Next event target (s)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">nextEventAudioTime</span>
+            <span class="debug-formula">firstEventAudioTime + eventGridIndex × eventIntervalSeconds</span>
+            <span class="debug-description">Exact audio-clock timestamp of the next unscheduled beat.</span>
+          </span>
+        </dt>
+        <dd><output id="nextEventTarget">0.000000</output></dd>
+
+        <dt>
+          <span class="debug-label">Time until next event (ms)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">nextEventAudioTime - audioTime</span>
+            <span class="debug-formula">(nextEventAudioTime - audioTime) × 1000</span>
+            <span class="debug-description">Audio-clock time remaining before the next unscheduled beat target.</span>
+          </span>
+        </dt>
+        <dd><output id="timeUntilNextEvent">0.000</output></dd>
+
+        <dt>
+          <span class="debug-label">Last scheduling lead (ms)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">lastSchedulingLeadMs</span>
+            <span class="debug-formula">(nextEventAudioTime - audioTime) × 1000 at scheduling</span>
+            <span class="debug-description">How far ahead of playback the most recently queued event was handled.</span>
+          </span>
+        </dt>
+        <dd><output id="lastSchedulingLead">0.000</output></dd>
+
+        <dt>
+          <span class="debug-label">Minimum scheduling lead (ms)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">minimumSchedulingLeadMs</span>
+            <span class="debug-formula">min(previous minimum, lastSchedulingLeadMs)</span>
+            <span class="debug-description">Smallest observed safety margin between scheduling and playback.</span>
+          </span>
+        </dt>
+        <dd><output id="minimumSchedulingLead">0.000</output></dd>
+
+        <dt>
+          <span class="debug-label">Maximum scheduling lead (ms)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">maximumSchedulingLeadMs</span>
+            <span class="debug-formula">max(previous maximum, lastSchedulingLeadMs)</span>
+            <span class="debug-description">Largest observed amount of time an event was queued ahead.</span>
+          </span>
+        </dt>
+        <dd><output id="maximumSchedulingLead">0.000</output></dd>
+
+        <dt>
+          <span class="debug-label">Last skipped time span (ms)</span>
+          <span class="debug-meta">
+            <span class="debug-variable">skippedTimeSpanMs</span>
+            <span class="debug-formula">intervalsToSkip × eventIntervalSeconds × 1000</span>
+            <span class="debug-description">Audio-grid duration skipped when one or more beat targets were already in the past.</span>
+          </span>
+        </dt>
+        <dd><output id="lastSkippedSpan">0.000</output></dd>
+      </dl>
+      </section>
+      </div>
+    </section>
+
+    <section class="log" aria-labelledby="scheduled-values-heading">
+      <h2 id="scheduled-values-heading">6. Scheduled-event log</h2>
+      <p class="explanation">
+        Scheduler errors describe the coarse JavaScript wake-up only; positive
+        values are late. Beat targets use the audio clock and are queued ahead
+        of playback. These values do not measure physical output latency.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">
+                <span class="debug-label">Target audio time (s)</span>
+                <span class="debug-meta">
+                  <span class="debug-variable">targetTime / nextEventAudioTime</span>
+                  <span class="debug-formula">firstEventAudioTime + eventGridIndex × eventIntervalSeconds</span>
+                  <span class="debug-description">Exact audio-clock beat target.</span>
+                </span>
+              </th>
+              <th scope="col">
+                <span class="debug-label">Scheduled at (s)</span>
+                <span class="debug-meta">
+                  <span class="debug-variable">scheduledAt / audioTime</span>
+                  <span class="debug-formula">audioContext.currentTime at scheduler wake</span>
+                  <span class="debug-description">Audio-clock time when the event entered the queue.</span>
+                </span>
+              </th>
+              <th scope="col">
+                <span class="debug-label">Lead time (ms)</span>
+                <span class="debug-meta">
+                  <span class="debug-variable">leadTimeMs</span>
+                  <span class="debug-formula">(targetTime - scheduledAt) × 1000</span>
+                  <span class="debug-description">Scheduling safety margin before the event target.</span>
+                </span>
+              </th>
+              <th scope="col">
+                <span class="debug-label">Target interval (ms)</span>
+                <span class="debug-meta">
+                  <span class="debug-variable">eventIntervalSeconds</span>
+                  <span class="debug-formula">(60 / bpm) × 1000</span>
+                  <span class="debug-description">Intended spacing between beat targets.</span>
+                </span>
+              </th>
+              <th scope="col">
+                <span class="debug-label">Phase error (ms)</span>
+                <span class="debug-meta">
+                  <span class="debug-variable">phaseErrorMs</span>
+                  <span class="debug-formula">(nextEventAudioTime - idealTarget) × 1000</span>
+                  <span class="debug-description">Deviation of the scheduled target from its anchored beat grid.</span>
+                </span>
+              </th>
+              <th scope="col">
+                <span class="debug-label">Scheduler deadline error (ms)</span>
+                <span class="debug-meta">
+                  <span class="debug-variable">timerErrorMs</span>
+                  <span class="debug-formula">performanceTimeMs - expectedTimerDeadlineMs</span>
+                  <span class="debug-description">Main-thread callback error associated with this scheduling pass, not audio-output error.</span>
+                </span>
+              </th>
+            </tr>
+          </thead>
+          <tbody id="eventLog"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

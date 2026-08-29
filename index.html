@@ -70,11 +70,14 @@
         <dt>Next timer deadline (ms)</dt>
         <dd><output id="nextTimerDeadline">0.000</output></dd>
 
-        <dt>Last timer error (ms)</dt>
+        <dt>Last scheduler deadline error (ms)</dt>
         <dd><output id="lastTimerError">0.000</output></dd>
 
-        <dt>Maximum timer error (ms)</dt>
+        <dt>Maximum scheduler lateness (ms)</dt>
         <dd><output id="maximumTimerError">0.000</output></dd>
+
+        <dt>Skipped timer intervals</dt>
+        <dd><output id="skippedTimerIntervals">0</output></dd>
 
         <dt>Last timer period (ms)</dt>
         <dd><output id="lastTimerPeriod">0.000</output></dd>
@@ -82,7 +85,7 @@
         <dt>Average timer period (ms)</dt>
         <dd><output id="averageTimerPeriod">0.000</output></dd>
 
-        <dt>Last timer-period error (ms)</dt>
+        <dt>Last scheduler-period error (ms)</dt>
         <dd><output id="lastTimerPeriodError">0.000</output></dd>
 
         <dt>Scheduler horizon (s)</dt>
@@ -110,6 +113,11 @@
 
     <section class="log" aria-labelledby="scheduled-values-heading">
       <h2 id="scheduled-values-heading">Scheduled values</h2>
+      <p class="explanation">
+        Scheduler errors describe the coarse JavaScript wake-up only; positive
+        values are late. Beat targets use the audio clock and are queued ahead
+        of playback. These values do not measure physical output latency.
+      </p>
       <div class="table-wrap">
         <table>
           <thead>
@@ -119,7 +127,7 @@
               <th scope="col">Lead time (ms)</th>
               <th scope="col">Target interval (ms)</th>
               <th scope="col">Phase error (ms)</th>
-              <th scope="col">Timer error (ms)</th>
+              <th scope="col">Scheduler deadline error (ms)</th>
             </tr>
           </thead>
           <tbody id="eventLog"></tbody>

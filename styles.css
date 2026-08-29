@@ -95,6 +95,14 @@ input:focus-visible {
   font-size: 0.8125rem;
 }
 
+.explanation {
+  margin: 0 0 12px;
+  max-width: 78ch;
+  font-family: system-ui, sans-serif;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
 dl {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) minmax(140px, auto);

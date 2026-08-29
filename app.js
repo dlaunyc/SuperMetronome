@@ -25,6 +25,7 @@
     nextTimerDeadline: document.querySelector("#nextTimerDeadline"),
     lastTimerError: document.querySelector("#lastTimerError"),
     maximumTimerError: document.querySelector("#maximumTimerError"),
+    skippedTimerIntervals: document.querySelector("#skippedTimerIntervals"),
     lastTimerPeriod: document.querySelector("#lastTimerPeriod"),
     averageTimerPeriod: document.querySelector("#averageTimerPeriod"),
     lastTimerPeriodError: document.querySelector("#lastTimerPeriodError"),
@@ -49,6 +50,7 @@
   let expectedTimerDeadlineMs = 0;
   let nextEventAudioTime = 0;
   let maximumTimerErrorMs = 0;
+  let skippedTimerIntervalCount = 0;
   let previousTimerWakeMs = 0;
   let timerPeriodTotalMs = 0;
   let timerPeriodSampleCount = 0;
@@ -139,6 +141,29 @@
     silentSource = null;
   }
 
+  function eventTimeAtIndex(index) {
+    return firstEventAudioTime + index * eventIntervalSeconds;
+  }
+
+  function scheduleNextWake() {
+    const schedulingTimeMs = performance.now();
+    let nextDeadlineMs = expectedTimerDeadlineMs + timerIntervalMs;
+
+    // Keep timer deadlines on one fixed grid. Basing the next deadline on the
+    // callback's actual (usually late) arrival would accumulate timer drift.
+    if (nextDeadlineMs <= schedulingTimeMs) {
+      const intervalsToSkip = Math.floor(
+        (schedulingTimeMs - nextDeadlineMs) / timerIntervalMs
+      ) + 1;
+      nextDeadlineMs += intervalsToSkip * timerIntervalMs;
+      skippedTimerIntervalCount += intervalsToSkip;
+    }
+
+    expectedTimerDeadlineMs = nextDeadlineMs;
+    const delayMs = Math.max(0, nextDeadlineMs - performance.now());
+    schedulerTimer = window.setTimeout(schedulerWake, delayMs);
+  }
+
   function schedulerWake() {
     if (!running || !audioContext) {
       return;
@@ -168,8 +193,8 @@
       const missedTime = audioTime - nextEventAudioTime;
       const intervalsToSkip = Math.ceil(missedTime / eventIntervalSeconds);
       skippedTimeSpanMs = intervalsToSkip * eventIntervalSeconds * 1000;
-      nextEventAudioTime += intervalsToSkip * eventIntervalSeconds;
       eventGridIndex += intervalsToSkip;
+      nextEventAudioTime = eventTimeAtIndex(eventGridIndex);
     }
 
     while (nextEventAudioTime <= schedulerHorizon) {
@@ -179,17 +204,20 @@
       minimumSchedulingLeadMs = Math.min(minimumSchedulingLeadMs, lastSchedulingLeadMs);
       maximumSchedulingLeadMs = Math.max(maximumSchedulingLeadMs, lastSchedulingLeadMs);
       appendScheduledValue(nextEventAudioTime, audioTime, timerErrorMs, phaseErrorMs);
-      nextEventAudioTime += eventIntervalSeconds;
       eventGridIndex += 1;
+      nextEventAudioTime = eventTimeAtIndex(eventGridIndex);
     }
 
-    expectedTimerDeadlineMs = performanceTimeMs + timerIntervalMs;
+    // Arm the next wake before updating the diagnostics so DOM work cannot add
+    // avoidable delay to registering the timer.
+    scheduleNextWake();
 
     writeValue(elements.performanceNow, performanceTimeMs, 3);
     writeValue(elements.audioNow, audioTime, 6);
     writeValue(elements.nextTimerDeadline, expectedTimerDeadlineMs, 3);
     writeValue(elements.lastTimerError, timerErrorMs, 3);
     writeValue(elements.maximumTimerError, maximumTimerErrorMs, 3);
+    elements.skippedTimerIntervals.value = String(skippedTimerIntervalCount);
     writeValue(elements.lastTimerPeriod, timerPeriodMs, 3);
     writeValue(
       elements.averageTimerPeriod,
@@ -209,7 +237,6 @@
     writeValue(elements.maximumSchedulingLead, maximumSchedulingLeadMs, 3);
     writeValue(elements.lastSkippedSpan, skippedTimeSpanMs, 3);
 
-    schedulerTimer = window.setTimeout(schedulerWake, timerIntervalMs);
   }
 
   async function start() {
@@ -235,6 +262,7 @@
 
       running = true;
       maximumTimerErrorMs = 0;
+      skippedTimerIntervalCount = 0;
       previousTimerWakeMs = 0;
       timerPeriodTotalMs = 0;
       timerPeriodSampleCount = 0;
@@ -279,7 +307,9 @@
   function clear() {
     elements.eventLog.replaceChildren();
     maximumTimerErrorMs = 0;
+    skippedTimerIntervalCount = 0;
     writeValue(elements.maximumTimerError, 0, 3);
+    elements.skippedTimerIntervals.value = "0";
     writeValue(elements.minimumSchedulingLead, 0, 3);
     writeValue(elements.maximumSchedulingLead, 0, 3);
     writeValue(elements.lastSkippedSpan, 0, 3);
