@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Two-clock timer and scheduler</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main>
+    <h1>Two-clock timer / scheduler</h1>
+
+    <section class="controls" aria-labelledby="configuration-heading">
+      <h2 id="configuration-heading">Time values</h2>
+      <div class="inputs">
+        <label>
+          Tempo (BPM)
+          <input id="bpm" type="number" min="1" max="1000" step="0.1" value="120" inputmode="decimal">
+        </label>
+        <label>
+          Timer interval (ms)
+          <input id="timerInterval" type="number" min="5" max="1000" step="1" value="25" inputmode="decimal">
+        </label>
+        <label>
+          Look-ahead window (ms)
+          <input id="lookAhead" type="number" min="10" max="5000" step="1" value="100" inputmode="decimal">
+        </label>
+      </div>
+      <div class="buttons">
+        <button id="start" type="button">Start</button>
+        <button id="stop" type="button" disabled>Stop</button>
+        <button id="clear" type="button">Clear</button>
+      </div>
+      <p id="status" role="status" aria-live="polite">Idle</p>
+    </section>
+
+    <section class="values" aria-labelledby="current-values-heading">
+      <h2 id="current-values-heading">Current values</h2>
+      <dl>
+        <dt>Tempo (BPM)</dt>
+        <dd><output id="bpmValue">120.000</output></dd>
+
+        <dt>Event rate (Hz)</dt>
+        <dd><output id="eventRate">2.000000</output></dd>
+
+        <dt>Event interval (s)</dt>
+        <dd><output id="eventIntervalSeconds">0.500000</output></dd>
+
+        <dt>Event interval (ms)</dt>
+        <dd><output id="eventIntervalMilliseconds">500.000</output></dd>
+
+        <dt>Audio sample rate (Hz)</dt>
+        <dd><output id="sampleRate">0.000</output></dd>
+
+        <dt>Samples per event</dt>
+        <dd><output id="samplesPerEvent">0.000</output></dd>
+
+        <dt>Audio base latency (ms)</dt>
+        <dd><output id="baseLatency">0.000</output></dd>
+
+        <dt>Audio output latency (ms)</dt>
+        <dd><output id="outputLatency">0.000</output></dd>
+
+        <dt>Performance clock (ms)</dt>
+        <dd><output id="performanceNow">0.000</output></dd>
+
+        <dt>Audio clock (s)</dt>
+        <dd><output id="audioNow">0.000000</output></dd>
+
+        <dt>Next timer deadline (ms)</dt>
+        <dd><output id="nextTimerDeadline">0.000</output></dd>
+
+        <dt>Last timer error (ms)</dt>
+        <dd><output id="lastTimerError">0.000</output></dd>
+
+        <dt>Maximum timer error (ms)</dt>
+        <dd><output id="maximumTimerError">0.000</output></dd>
+
+        <dt>Last timer period (ms)</dt>
+        <dd><output id="lastTimerPeriod">0.000</output></dd>
+
+        <dt>Average timer period (ms)</dt>
+        <dd><output id="averageTimerPeriod">0.000</output></dd>
+
+        <dt>Last timer-period error (ms)</dt>
+        <dd><output id="lastTimerPeriodError">0.000</output></dd>
+
+        <dt>Scheduler horizon (s)</dt>
+        <dd><output id="schedulerHorizon">0.000000</output></dd>
+
+        <dt>Next event target (s)</dt>
+        <dd><output id="nextEventTarget">0.000000</output></dd>
+
+        <dt>Time until next event (ms)</dt>
+        <dd><output id="timeUntilNextEvent">0.000</output></dd>
+
+        <dt>Last scheduling lead (ms)</dt>
+        <dd><output id="lastSchedulingLead">0.000</output></dd>
+
+        <dt>Minimum scheduling lead (ms)</dt>
+        <dd><output id="minimumSchedulingLead">0.000</output></dd>
+
+        <dt>Maximum scheduling lead (ms)</dt>
+        <dd><output id="maximumSchedulingLead">0.000</output></dd>
+
+        <dt>Last skipped time span (ms)</dt>
+        <dd><output id="lastSkippedSpan">0.000</output></dd>
+      </dl>
+    </section>
+
+    <section class="log" aria-labelledby="scheduled-values-heading">
+      <h2 id="scheduled-values-heading">Scheduled values</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Target audio time (s)</th>
+              <th scope="col">Scheduled at (s)</th>
+              <th scope="col">Lead time (ms)</th>
+              <th scope="col">Target interval (ms)</th>
+              <th scope="col">Phase error (ms)</th>
+              <th scope="col">Timer error (ms)</th>
+            </tr>
+          </thead>
+          <tbody id="eventLog"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
